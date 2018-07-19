@@ -1,0 +1,25 @@
+lab1b-server.c:
+Source code used to generate the lab1b-server executable.
+Creates a server that listens for a client connecting on a specified port.
+Once a client connects, client input is forwarded to a shell, whose output is returned to the client.
+
+lab1b-client.c:
+Source code used to generate the lab1b-client executable
+Connects to a server on a specified port, then runs shell commands remotely on the server, and displays the results of those commands on the client.
+
+Makefile:
+Provides targets for generating executables. These targets include default, client, server, clean, and dist.
+Executables are compiled with -Wall -Wextra -lz options.
+
+default: Creates executables for both lab1b-server and lab1b-client.
+client: Creates executable for only lab1b-client
+server: Creates executable for only lab1b-server
+clean: Removes all files created by the Makefile. These include the executables lab1b-server, lab1b-client, and the distribution tarball.
+dist: Creates a tarball with all the files needed to compile and execute the program. These include the source files, Makefile, and this README.
+
+README:
+Provides a description for the contents provided by the tarball. 
+
+Much of the code used to do compression was taken off of the zlib website.
+In particular, the sample code provided at https://www.zlib.net/zpipe.c. was used as reference, and altered to work with buffers instead of file streams. 
+

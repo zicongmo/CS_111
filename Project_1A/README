@@ -1,0 +1,22 @@
+lab1a.c:
+Source code used to build the lab1a executable.
+The executable places the terminal into no-echo mode, and will manually process all keyboard input and echo it to stdout.
+If compiled with the --shell option, the terminal will forward keyboard input into a shell, and echo back the shell output.
+
+My code does not pass the confirming correct large-burst input processing case in the sanity check.
+The output is as follows, but I was not able to find the error.
+confirming correct large-burst input processing
+... FAIL echo $SHELL
+STDERR DUMP FOLLOWS
+EXPECTATION NOT FULFILLED
+STDOUT DUMP FOLLOWS
+e
+
+Makefile:
+Provides build targets for the following:
+	default: Builds the executable lab1a from lab1a.c, with the -Wall -Wextra options.
+	clean: Removes files created by the Makefile
+	dist: Creates a tar-ball containing lab1a.c, Makefile, and README for distribution.
+
+README:
+A description of the contents in lab1a-804654167.tar.gz, namely lab1a.c and Makefile.

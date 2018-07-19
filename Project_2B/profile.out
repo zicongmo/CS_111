@@ -1,0 +1,462 @@
+Total: 809 samples
+     735  90.9%  90.9%      808  99.9% thread_func
+      62   7.7%  98.5%       62   7.7% __strcmp_sse42
+       6   0.7%  99.3%       29   3.6% SortedList_lookup
+       4   0.5%  99.8%       43   5.3% SortedList_insert
+       1   0.1%  99.9%        1   0.1% 0x00007ffd0cbe76af
+       1   0.1% 100.0%        1   0.1% main
+       0   0.0% 100.0%        1   0.1% __GI___clock_gettime
+       0   0.0% 100.0%      808  99.9% __clone
+       0   0.0% 100.0%        1   0.1% __libc_start_main
+       0   0.0% 100.0%        1   0.1% _start
+       0   0.0% 100.0%      808  99.9% start_thread
+ROUTINE ====================== thread_func in /u/cs/ugrad/zicong/Documents/CS_111/Project2B/lab2_list.c
+   735    808 Total samples (flat / cumulative)
+     .      .   32: void sighandler(int signal){
+     .      .   33: 	fprintf(stderr, "Error: Signal Received %d\n", signal);
+     .      .   34: 	exit(1);
+     .      .   35: }
+     .      .   36: 
+---
+     .      .   37: void* thread_func(void* args){
+     .      .   38: 	SortedListElement_t* ptr = (SortedListElement_t* ) args;
+     .      .   39: 	long long lock_time = 0;
+     .      .   40: 	long long elapsed_time = 0;
+     .      .   41: 	struct timespec start_time;
+     .      .   42: 	struct timespec end_time;
+     .      .   43: 	int c; 
+     .      .   44: 	int i;
+     .      .   45: 	for(i = 0; i < num_iterations; i++){
+     .      .   46: 		unsigned int key = hash(ptr[i].key);
+     .      .   47: 		pthread_mutex_t* lock = mutexes[key % num_lists];
+     .      .   48: 		int* spin_lock = spin_locks[key % num_lists];
+     .      .   49: 
+     .      .   50: 		/* Note time before getting lock */
+     .      .   51: 		if(sync_m || sync_s){
+     .      1   52: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .   53: 			if(c < 0){
+     .      .   54: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   55: 			}
+     .      .   56: 		}
+     .      .   57: 
+     .      .   58: 		if(sync_m){
+     .      .   59: 			pthread_mutex_lock(lock);
+     .      .   60: 			/* List should be assigned after lock is obtained */		
+     .      .   61: 			SortedList_t* list = lists[key % num_lists];
+     .      .   62: 
+     .      .   63: 			/* Note time after getting lock */
+     .      .   64: 			if(sync_m || sync_s){
+     .      .   65: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .   66: 				if(c < 0){
+     .      .   67: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   68: 					exit(1);
+     .      .   69: 				}
+     .      .   70: 				elapsed_time = (long long)((end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec));
+     .      .   71: 				/* Add elapsed time to total time for the thread */
+     .      .   72: 				lock_time += elapsed_time;
+     .      .   73: 			}
+     .      .   74: 			SortedList_insert(list, &(ptr[i]));
+     .      .   75: 			pthread_mutex_unlock(lock);
+     .      .   76: 		}
+     .      .   77: 		else if(sync_s){
+   411    411   78: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .   79: 
+     .      .   80: 			}
+     .      .   81: 			/* List should be assigned after lock is obtained */		
+     1      1   82: 			SortedList_t* list = lists[key % num_lists];
+     .      .   83: 
+     .      .   84: 			/* Note time after getting lock */
+     .      .   85: 			if(sync_m || sync_s){
+     .      .   86: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .   87: 				if(c < 0){
+     .      .   88: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   89: 					exit(1);
+     .      .   90: 				}
+     .      .   91: 				elapsed_time = (long long)((end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec));
+     .      .   92: 				/* Add elapsed time to total time for the thread */
+     .      .   93: 				lock_time += elapsed_time;
+     .      .   94: 			}
+     .     43   95: 			SortedList_insert(list, &(ptr[i]));			
+     .      .   96: 			__sync_lock_release(spin_lock);
+     .      .   97: 		}
+     .      .   98: 		else{
+     .      .   99: 			SortedList_t* list = lists[key % num_lists];
+     .      .  100: 			SortedList_insert(list, &(ptr[i]));
+     .      .  101: 		}
+     .      .  102: 	}
+     .      .  103: 
+     .      .  104: 	/* If any of the sublists are corrupted, must exit(2) */
+     .      .  105: 	for(i = 0; i < num_lists; i++){
+     .      .  106: 		pthread_mutex_t* lock = mutexes[i];
+     .      .  107: 		int* spin_lock = spin_locks[i];
+     .      .  108: 		/* Note time before getting lock */
+     .      .  109: 		if(sync_m || sync_s){
+     .      .  110: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .  111: 			if(c < 0){
+     .      .  112: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  113: 			}
+     .      .  114: 		}
+     .      .  115: 		if(sync_m){
+     .      .  116: 			pthread_mutex_lock(lock);
+     .      .  117: 			/* List should be assigned after lock is obtained */
+     .      .  118: 			SortedList_t* list = lists[i];
+     .      .  119: 			/* Note time after getting lock */
+     .      .  120: 			if(sync_m || sync_s){
+     .      .  121: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  122: 				if(c < 0){
+     .      .  123: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  124: 					exit(1);
+     .      .  125: 				}
+     .      .  126: 				/* Add elapsed time to total time for the thread */
+     .      .  127: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  128: 			}
+     .      .  129: 			if(SortedList_length(list) == -1){
+     .      .  130: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  131: 				exit(2);
+     .      .  132: 			}
+     .      .  133: 			pthread_mutex_unlock(lock);
+     .      .  134: 		}
+     .      .  135: 		else if(sync_s){
+     .      .  136: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .  137: 
+     .      .  138: 			}
+     .      .  139: 			/* List should be assigned after lock is obtained */
+     .      .  140: 			SortedList_t* list = lists[i];
+     .      .  141: 			/* Note time after getting lock */
+     .      .  142: 			if(sync_m || sync_s){
+     .      .  143: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  144: 				if(c < 0){
+     .      .  145: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  146: 					exit(1);
+     .      .  147: 				}
+     .      .  148: 				/* Add elapsed time to total time for the thread */
+     .      .  149: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  150: 			}
+     .      .  151: 			if(SortedList_length(list) == -1){
+     .      .  152: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  153: 				exit(2);
+     .      .  154: 			}
+     .      .  155: 			__sync_lock_release(spin_lock);
+     .      .  156: 		}
+     .      .  157: 		else{
+     .      .  158: 			/* List should be assigned after lock is obtained */
+     .      .  159: 			SortedList_t* list = lists[i];
+     .      .  160: 			if(SortedList_length(list) == -1){
+     .      .  161: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  162: 				exit(2);
+     .      .  163: 			}
+     .      .  164: 		}
+     .      .  165: 	}
+     .      .  166: 
+     .      .  167: 	/* Lookup and delete */
+     .      .  168: 	for(i = 0; i < num_iterations; i++){
+     .      .  169: 		unsigned int key = hash(ptr[i].key);
+     .      .  170: 		pthread_mutex_t* lock = mutexes[key % num_lists];
+     .      .  171: 		int* spin_lock = spin_locks[key % num_lists];
+     .      .  172: 		/* Note time before getting lock */
+     .      .  173: 		if(sync_m || sync_s){
+     .      .  174: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .  175: 			if(c < 0){
+     .      .  176: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  177: 			}
+     .      .  178: 		}
+     .      .  179: 		if(sync_m){
+     .      .  180: 			pthread_mutex_lock(lock);
+     .      .  181: 			/* List should be assigned after lock is obtained */		
+     .      .  182: 			SortedList_t* list = lists[key % num_lists];
+     .      .  183: 
+     .      .  184: 			/* Note time after getting lock */
+     .      .  185: 			if(sync_m || sync_s){
+     .      .  186: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  187: 				if(c < 0){
+     .      .  188: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  189: 					exit(1);
+     .      .  190: 				}
+     .      .  191: 				/* Add elapsed time to total time for the thread */
+     .      .  192: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  193: 			}	
+     .      .  194: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  195: 			if(toDelete == NULL){
+     .      .  196: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  197: 				exit(2);
+     .      .  198: 			}
+     .      .  199: 			if(SortedList_delete(toDelete) != 0){
+     .      .  200: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  201: 				exit(2);
+     .      .  202: 			}
+     .      .  203: 			pthread_mutex_unlock(lock);
+     .      .  204: 		}
+     .      .  205: 		else if(sync_s){
+   323    323  206: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .  207: 
+     .      .  208: 			}
+     .      .  209: 			/* List should be assigned after lock is obtained */		
+     .      .  210: 			SortedList_t* list = lists[key % num_lists];
+     .      .  211: 			/* Note time after getting lock */
+     .      .  212: 			if(sync_m || sync_s){
+     .      .  213: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  214: 				if(c < 0){
+     .      .  215: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  216: 					exit(1);
+     .      .  217: 				}
+     .      .  218: 				/* Add elapsed time to total time for the thread */
+     .      .  219: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  220: 			}	
+     .     29  221: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  222: 			if(toDelete == NULL){
+     .      .  223: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  224: 				exit(2);
+     .      .  225: 			}
+     .      .  226: 			if(SortedList_delete(toDelete) != 0){
+     .      .  227: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  228: 				exit(2);
+     .      .  229: 			}
+     .      .  230: 			__sync_lock_release(spin_lock);
+     .      .  231: 		}
+     .      .  232: 		else{
+     .      .  233: 			/* List should be assigned after lock is obtained */		
+     .      .  234: 			SortedList_t* list = lists[key % num_lists];
+     .      .  235: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  236: 			if(toDelete == NULL){
+     .      .  237: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  238: 				exit(2);
+     .      .  239: 			}
+     .      .  240: 			if(SortedList_delete(toDelete) != 0){
+     .      .  241: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  242: 				exit(2);
+     .      .  243: 			}
+     .      .  244: 		}
+     .      .  245: 	}
+     .      .  246: 	return (void*) lock_time;
+     .      .  247: }
+---
+     .      .  248: 
+     .      .  249: int main(int argc, char** argv){
+     .      .  250: 	signal(SIGSEGV, sighandler);
+     .      .  251: 	int a;
+     .      .  252: 	while(1){
+ROUTINE ====================== thread_func in /u/cs/ugrad/zicong/Documents/CS_111/Project2B/lab2_list.c
+   735    808 Total samples (flat / cumulative)
+     .      .   32: void sighandler(int signal){
+     .      .   33: 	fprintf(stderr, "Error: Signal Received %d\n", signal);
+     .      .   34: 	exit(1);
+     .      .   35: }
+     .      .   36: 
+---
+     .      .   37: void* thread_func(void* args){
+     .      .   38: 	SortedListElement_t* ptr = (SortedListElement_t* ) args;
+     .      .   39: 	long long lock_time = 0;
+     .      .   40: 	long long elapsed_time = 0;
+     .      .   41: 	struct timespec start_time;
+     .      .   42: 	struct timespec end_time;
+     .      .   43: 	int c; 
+     .      .   44: 	int i;
+     .      .   45: 	for(i = 0; i < num_iterations; i++){
+     .      .   46: 		unsigned int key = hash(ptr[i].key);
+     .      .   47: 		pthread_mutex_t* lock = mutexes[key % num_lists];
+     .      .   48: 		int* spin_lock = spin_locks[key % num_lists];
+     .      .   49: 
+     .      .   50: 		/* Note time before getting lock */
+     .      .   51: 		if(sync_m || sync_s){
+     .      1   52: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .   53: 			if(c < 0){
+     .      .   54: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   55: 			}
+     .      .   56: 		}
+     .      .   57: 
+     .      .   58: 		if(sync_m){
+     .      .   59: 			pthread_mutex_lock(lock);
+     .      .   60: 			/* List should be assigned after lock is obtained */		
+     .      .   61: 			SortedList_t* list = lists[key % num_lists];
+     .      .   62: 
+     .      .   63: 			/* Note time after getting lock */
+     .      .   64: 			if(sync_m || sync_s){
+     .      .   65: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .   66: 				if(c < 0){
+     .      .   67: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   68: 					exit(1);
+     .      .   69: 				}
+     .      .   70: 				elapsed_time = (long long)((end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec));
+     .      .   71: 				/* Add elapsed time to total time for the thread */
+     .      .   72: 				lock_time += elapsed_time;
+     .      .   73: 			}
+     .      .   74: 			SortedList_insert(list, &(ptr[i]));
+     .      .   75: 			pthread_mutex_unlock(lock);
+     .      .   76: 		}
+     .      .   77: 		else if(sync_s){
+   411    411   78: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .   79: 
+     .      .   80: 			}
+     .      .   81: 			/* List should be assigned after lock is obtained */		
+     1      1   82: 			SortedList_t* list = lists[key % num_lists];
+     .      .   83: 
+     .      .   84: 			/* Note time after getting lock */
+     .      .   85: 			if(sync_m || sync_s){
+     .      .   86: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .   87: 				if(c < 0){
+     .      .   88: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .   89: 					exit(1);
+     .      .   90: 				}
+     .      .   91: 				elapsed_time = (long long)((end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec));
+     .      .   92: 				/* Add elapsed time to total time for the thread */
+     .      .   93: 				lock_time += elapsed_time;
+     .      .   94: 			}
+     .     43   95: 			SortedList_insert(list, &(ptr[i]));			
+     .      .   96: 			__sync_lock_release(spin_lock);
+     .      .   97: 		}
+     .      .   98: 		else{
+     .      .   99: 			SortedList_t* list = lists[key % num_lists];
+     .      .  100: 			SortedList_insert(list, &(ptr[i]));
+     .      .  101: 		}
+     .      .  102: 	}
+     .      .  103: 
+     .      .  104: 	/* If any of the sublists are corrupted, must exit(2) */
+     .      .  105: 	for(i = 0; i < num_lists; i++){
+     .      .  106: 		pthread_mutex_t* lock = mutexes[i];
+     .      .  107: 		int* spin_lock = spin_locks[i];
+     .      .  108: 		/* Note time before getting lock */
+     .      .  109: 		if(sync_m || sync_s){
+     .      .  110: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .  111: 			if(c < 0){
+     .      .  112: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  113: 			}
+     .      .  114: 		}
+     .      .  115: 		if(sync_m){
+     .      .  116: 			pthread_mutex_lock(lock);
+     .      .  117: 			/* List should be assigned after lock is obtained */
+     .      .  118: 			SortedList_t* list = lists[i];
+     .      .  119: 			/* Note time after getting lock */
+     .      .  120: 			if(sync_m || sync_s){
+     .      .  121: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  122: 				if(c < 0){
+     .      .  123: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  124: 					exit(1);
+     .      .  125: 				}
+     .      .  126: 				/* Add elapsed time to total time for the thread */
+     .      .  127: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  128: 			}
+     .      .  129: 			if(SortedList_length(list) == -1){
+     .      .  130: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  131: 				exit(2);
+     .      .  132: 			}
+     .      .  133: 			pthread_mutex_unlock(lock);
+     .      .  134: 		}
+     .      .  135: 		else if(sync_s){
+     .      .  136: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .  137: 
+     .      .  138: 			}
+     .      .  139: 			/* List should be assigned after lock is obtained */
+     .      .  140: 			SortedList_t* list = lists[i];
+     .      .  141: 			/* Note time after getting lock */
+     .      .  142: 			if(sync_m || sync_s){
+     .      .  143: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  144: 				if(c < 0){
+     .      .  145: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  146: 					exit(1);
+     .      .  147: 				}
+     .      .  148: 				/* Add elapsed time to total time for the thread */
+     .      .  149: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  150: 			}
+     .      .  151: 			if(SortedList_length(list) == -1){
+     .      .  152: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  153: 				exit(2);
+     .      .  154: 			}
+     .      .  155: 			__sync_lock_release(spin_lock);
+     .      .  156: 		}
+     .      .  157: 		else{
+     .      .  158: 			/* List should be assigned after lock is obtained */
+     .      .  159: 			SortedList_t* list = lists[i];
+     .      .  160: 			if(SortedList_length(list) == -1){
+     .      .  161: 				fprintf(stderr, "Error: Corrupted pointers in list %d\n", i);
+     .      .  162: 				exit(2);
+     .      .  163: 			}
+     .      .  164: 		}
+     .      .  165: 	}
+     .      .  166: 
+     .      .  167: 	/* Lookup and delete */
+     .      .  168: 	for(i = 0; i < num_iterations; i++){
+     .      .  169: 		unsigned int key = hash(ptr[i].key);
+     .      .  170: 		pthread_mutex_t* lock = mutexes[key % num_lists];
+     .      .  171: 		int* spin_lock = spin_locks[key % num_lists];
+     .      .  172: 		/* Note time before getting lock */
+     .      .  173: 		if(sync_m || sync_s){
+     .      .  174: 			c = clock_gettime(CLOCK_MONOTONIC, &start_time);
+     .      .  175: 			if(c < 0){
+     .      .  176: 				fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  177: 			}
+     .      .  178: 		}
+     .      .  179: 		if(sync_m){
+     .      .  180: 			pthread_mutex_lock(lock);
+     .      .  181: 			/* List should be assigned after lock is obtained */		
+     .      .  182: 			SortedList_t* list = lists[key % num_lists];
+     .      .  183: 
+     .      .  184: 			/* Note time after getting lock */
+     .      .  185: 			if(sync_m || sync_s){
+     .      .  186: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  187: 				if(c < 0){
+     .      .  188: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  189: 					exit(1);
+     .      .  190: 				}
+     .      .  191: 				/* Add elapsed time to total time for the thread */
+     .      .  192: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  193: 			}	
+     .      .  194: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  195: 			if(toDelete == NULL){
+     .      .  196: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  197: 				exit(2);
+     .      .  198: 			}
+     .      .  199: 			if(SortedList_delete(toDelete) != 0){
+     .      .  200: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  201: 				exit(2);
+     .      .  202: 			}
+     .      .  203: 			pthread_mutex_unlock(lock);
+     .      .  204: 		}
+     .      .  205: 		else if(sync_s){
+   323    323  206: 			while(__sync_lock_test_and_set(spin_lock, 1)){
+     .      .  207: 
+     .      .  208: 			}
+     .      .  209: 			/* List should be assigned after lock is obtained */		
+     .      .  210: 			SortedList_t* list = lists[key % num_lists];
+     .      .  211: 			/* Note time after getting lock */
+     .      .  212: 			if(sync_m || sync_s){
+     .      .  213: 				c = clock_gettime(CLOCK_MONOTONIC, &end_time);
+     .      .  214: 				if(c < 0){
+     .      .  215: 					fprintf(stderr, "Error in clock_gettime: %s\n", strerror(errno));
+     .      .  216: 					exit(1);
+     .      .  217: 				}
+     .      .  218: 				/* Add elapsed time to total time for the thread */
+     .      .  219: 				lock_time += (long long)(end_time.tv_sec - start_time.tv_sec)*1000000000 + (end_time.tv_nsec - start_time.tv_nsec);			
+     .      .  220: 			}	
+     .     29  221: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  222: 			if(toDelete == NULL){
+     .      .  223: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  224: 				exit(2);
+     .      .  225: 			}
+     .      .  226: 			if(SortedList_delete(toDelete) != 0){
+     .      .  227: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  228: 				exit(2);
+     .      .  229: 			}
+     .      .  230: 			__sync_lock_release(spin_lock);
+     .      .  231: 		}
+     .      .  232: 		else{
+     .      .  233: 			/* List should be assigned after lock is obtained */		
+     .      .  234: 			SortedList_t* list = lists[key % num_lists];
+     .      .  235: 			SortedListElement_t* toDelete = SortedList_lookup(list, ptr[i].key);
+     .      .  236: 			if(toDelete == NULL){
+     .      .  237: 				fprintf(stderr, "Error: Element not found in list %d\n", key % num_lists);
+     .      .  238: 				exit(2);
+     .      .  239: 			}
+     .      .  240: 			if(SortedList_delete(toDelete) != 0){
+     .      .  241: 				fprintf(stderr, "Error: Corrupted pointer found while deleting from list %d\n", key % num_lists);
+     .      .  242: 				exit(2);
+     .      .  243: 			}
+     .      .  244: 		}
+     .      .  245: 	}
+     .      .  246: 	return (void*) lock_time;
+     .      .  247: }
+---
+     .      .  248: 
+     .      .  249: int main(int argc, char** argv){
+     .      .  250: 	signal(SIGSEGV, sighandler);
+     .      .  251: 	int a;
+     .      .  252: 	while(1){

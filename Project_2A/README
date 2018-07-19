@@ -1,0 +1,55 @@
+QUESTION 2.1.1
+I noticed that having 4 threads with 150-200 iterations causes pretty consistent failure.
+Errors are caused when two threads try to simulatenously update the counter variable. Because this is relatively unlikely for a low number of iterations/threads, it takes many more iterations for a failure to be likely.
+Since the chance of failure is proportional to the number of threads/iterations, the chance of failure for a low number of iterations is very low. This is because it is unlikely that two threads are simulatenously updating the same counter, and there is not much time for this to occur with low number of iterations.
+
+QUESTION 2.1.2
+The yield runs are slower because of the additional yields that each thread goes through. Each yield causes a context switch, which requires saving the state of the thread and switching to another thread.
+A context switch takes a lot of time and overhead to perform, meaning that a lot of extra time is being "wasted" on context switches. As a result, the yield runs are much slower.
+Because it is impossible to know exactly how long a context switch takes, the aount needed to do only operations is also unknown. Therefore, all the per-operations timings are much higher than they actually are, so it's not possible to get valid timings.
+
+QUESTION 2.1.3
+Because there is a significant overhead associated with creating the threads, the proportion of time spent creating the threads decreases the longer the program runs. As a result, when there are many iterations, the average cost drops, as the overhead time does not factor in as much to the average cost. 
+As the number of iterations approaches infinity, the proportion of time associated with creating the threads approaches 0. Therefore, we should run as many iterations as we can to get the most accurate average cost possible. We see from the graph that the average cost per operation is approaching some value around 8 ns. 
+
+QUESTION 2.1.4
+For low number of threads, it is unlikely that there is some thread holding the lock whenever another thread wants to run the critical section. As a result, the code runs relatively normal, since the chances of being locked out are relatively small for a low number of threads.
+As the number of threads rises, threads have to wait longer and longer for a chance to run the critical section, since it is more likely that some other thread has the lock. Because for two of the protection options involve spinning, this takes additional CPU time. However, all of them slow down because the number of threads waiting for the same lock increases.
+
+QUESTION 2.2.1
+The cost per operation for mutexes is initially high, then starts to flatten out as the number of threads increase. Because the mutexes put a thread to sleep whenever the lock is occupied instead of spinning, the addition of new threads does not impact the cost per operation as heavily. The list graph seems to be converging slower than the add graph, but this may be due to lack of data, as a trend is hard to observe with three data points. 
+There is also a larger spike between 1 and 2 threads in add than there is between 1 and 2 threads in list. Because the add operation is so much shorter than the list operation, it makes sense that the overhead associated with mutexes impacts the operation cost of add more than it does list. 
+With mutexes, there are not many CPU cycles wasted waiting for the lock, since the thread will sleep until the lock is available. Since there is not much time wasted, as the number of threads increases, the mutex graph will converge and flatten out. Additionally, the overhead associated with mutexes becomes less relevant the more operations there are, which is also why the mutex graph flattens out.
+
+QUESTION 2.2.2
+The time per protected operation vs the number of threads for list operations differs depending on whether the protection was by mutex or spin lock. The time for spin lock does not change much between 1 and 2 threads, compared to the large spike for mutexes between 1 and 2 threads. However, as the number of threads increases to 4, there is a large upward trend for spin locks, while the mutexes seems to converge and flatten out. 
+The mutex graph flattens out for the same reasons as stated in 2.2.1, which is that the overhead associated with sleeping becomes less of a factor as the amount of time spent performing operations increases. Therefore, the mutex graph tends to flatten out to a value.
+The spin lock has the opposite behavior, where it's initially flat. With a low number of threads, it may be more efficient to spin and wait for a lock rather than context switch, since no other thread is waiting for the lock. As soon as the first thread is done with the lock, the other thread can use it, as opposed to setting up an additional context switch. Therefore, the spin lock graph is initially flat. However, as the number of threads increases, the more threads there are waiting for the lock. The thread has to wait and spin longer for a chance to use the lock. At this point, it becomes much more inefficient to spin instead of sleeping, so the cost per operation skyrockets as the number of threads increases. Therefore, the spin lock graph starts flat, and increases dramatically as the number of threads increases.
+
+CONTENTS:
+lab2a-804654167.tar.gz: Tarball containing source files, Makefile, README, csv files containing plot data, and scripts used to generate the plots.
+Makefile: Provides easy way to build the following targets:
+	  default: Builds the lab2_add and lab2_list executables
+	  build: Same as default
+	  tests: Runs 200 test cases on lab2_add and lab2_list, storing output data into lab2_add.csv and lab2_list.csv. The test cases were taken from Zhaoxing's sample.sh script.
+	  graphs: Uses the data in the csv files to generate .png files showing timing relations.
+	  dist: Builds the tarball
+	  clean: Removes files generated by the Makefile
+README: Provides answers to the selected questions, and a description of the contents of the tarball.
+lab2_add.c: Source file used to build lab2_add
+lab2_list.c: Source file used to build lab2_list
+SortedList.h: Header file describing the functions used to manipulate sorted lsits
+SortedList.c: Source file implementing the functions described in SortedList.h
+lab2_add.csv: csv file containing data about timing, num_threads, num_iterations for each test done on lab2_add
+lab2_list.csv: csv file containing data about timing, num_threads, num_iterations for each test done on lab2_list
+lab2_add.gp: Script using gnuplot to generate .png files using the data in lab2_add.csv
+lab2_list.gp: Script using gnuplot to generate .png files using the data lab2_list.csv
+lab2_add-1.png: Graph showing which num_threads and num_iteration combinations lead to a successful run
+lab2_add-2.png: Graph showing the timing difference between yielding and non-yielding
+lab2_add-3.png: Graph showing the average cost per operation as a function of the number of iterations
+lab2_add-4.png: Graph showing that adding locks and protection leads to more successful cases than runs without.
+lab2_add-5.png: Graph showing the average cost per operation as a function of the number of threads
+lab2_list-1.png: Graph showing the average cost per operation as a function of the number of iterations
+lab2_list-2.png: Graph showing which combinations of thread count and number of iterations that lead to a successful run
+lab2_list-3.png: Graph showing which protection iterations can run without failure.
+lab2_list-4.png: Graph showing the relation between average cost and thread number when the list is protected with mutexes or spin-locks
